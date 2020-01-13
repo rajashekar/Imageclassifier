@@ -16,10 +16,11 @@ from PIL import Image
 
 parser = argparse.ArgumentParser(description='Image Classifier')
 
-parser.add_argument('--data_dir', action='store', help='Data Directory', type=str, default=os.getcwd())
+parser.add_argument('--data_dir', action='store', help='Data Directory', type=str, default='flowers')
 parser.add_argument('--save_dir', action='store', help='Save Directory', type=str, default=os.getcwd())
-parser.add_argument('--arch', action='store', help='Pretrained vgg model', type=str, default='vgg19')
+parser.add_argument('--arch', action='store', help='Pretrained vgg model', type=str, choices=['vgg19', 'googlenet'], default='vgg19')
 parser.add_argument('--learning_rate', action='store', help='Learning rate', type=float, default=0.0003)
+parser.add_argument('--epochs', action='store', help='Number of epochs', type=int, default=5)
 parser.add_argument('--hidden_units', action='store', help='Hidden units', type=int, default=512)
 parser.add_argument('--gpu', action='store_true', help='Enable GPU')
 
@@ -30,8 +31,8 @@ arch = args.arch
 hidden_units = args.hidden_units
 learning_rate = args.learning_rate
 gpu = args.gpu
+epochs = args.epochs
 
-data_dir = 'flowers'
 train_dir = data_dir + '/train'
 valid_dir = data_dir + '/valid'
 test_dir = data_dir + '/test'
@@ -63,6 +64,10 @@ testloader = torch.utils.data.DataLoader(test_data, batch_size=32)
 # Build and train your network
 if arch == 'vgg19':
     model = models.vgg19(pretrained=True)
+    inputs = model.classifier[0].in_features
+elif arch == 'googlenet':
+    model = models.googlenet(pretrained=True)
+    inputs = model.fc.in_features
 else:
     print('No appropriate arch found. Exiting')
     sys.exit()
@@ -74,7 +79,7 @@ for param in model.parameters():
 # There are 102 flower categories
 num_labels = 102
 classifier = nn.Sequential(OrderedDict([
-                            ('fc1', nn.Linear(25088, 2*hidden_units)),
+                            ('fc1', nn.Linear(inputs, 2*hidden_units)),
                             ('relu1', nn.ReLU()),
                             ('dropout1', nn.Dropout(p=0.2)),
                             ('fc2', nn.Linear(2*hidden_units, hidden_units)),
@@ -84,21 +89,27 @@ classifier = nn.Sequential(OrderedDict([
                             ('output', nn.LogSoftmax(dim=1))
                            ]))
 
-model.classifier = classifier
+if arch == 'vgg19':
+    model.classifier = classifier
+    # Using optimization algorithm Adam with learning rate 
+    optimizer = optim.Adam(model.classifier.parameters(), lr=learning_rate)
+else:
+    model.fc = classifier
+    optimizer = optim.Adam(model.fc.parameters(), lr=learning_rate)
 
 device = torch.device("cuda" if gpu else "cpu")
 print('Using {} for training'.format(device.type))
 # Using Negative Log Likelihood Loss - vgg19
 criterion = nn.NLLLoss()
-# Using optimization algorithm Adam with learning rate 
-optimizer = optim.Adam(model.classifier.parameters(), lr=learning_rate)
+
+# switch model to cuda or cpu
 model.to(device)
-epochs = 10
+
 running_loss = 0
 steps = 0
 print_every = 10
 
-print('Training the model.')
+print('Training the model with arch {} and with {}'.format(arch, device.type))
 for epoch in range(epochs):
     for images, labels in trainloader:
         steps += 1
@@ -172,11 +183,12 @@ with torch.no_grad():
                       "Test Accuracy: {:.3f}".format(accuracy/len(testloader)))
     
 # Save the checkpoint
-path = save_dir + "/flowersvgg19gpu.pth"
+path = save_dir + "/flowersclassifier.pth"
 state = {
     'classifier': classifier,
     'state_dict': optimizer.state_dict(),
     'class_to_idx': train_data.class_to_idx,
+    'arch': arch,
     'epochs': epochs,
 }
 print("Saving of trained model ...")

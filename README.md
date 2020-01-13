@@ -17,8 +17,10 @@ To train data with gpu
 python train.py <args>
 ```
 Above command takes <br>
-- --data_dir - type string - Place where train, validation & test data exists.
-- --save_dir - type string - Place where to save model checkpoint
+- --data_dir - type string - Path where train, validation & test data exists.
+- --save_dir - type string - Path where to save model checkpoint
+- --arch - type string - either vgg19 or googlenet
+- --epochs - type int - number of epochs used to train model
 - --learning_rate - type float - Learning rate
 - --hidden_units type int - Hidden units for network
 - --gpu - To enable gpu or not

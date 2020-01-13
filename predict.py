@@ -19,15 +19,18 @@ gpu = args.gpu
 category_names = args.category_names
 top_k = args.top_k
 
+with open(category_names, 'r') as f:
+    cat_to_name = json.load(f)
+
 # load model checkpoint
 model = helper.load_model_checkpoint(trained_model_path)
-probs, classes, flower_cat_names = helper.predict(imagepath, model, top_k, gpu)
+# predict using model
+probs, classes, flower_cat_names = helper.predict(imagepath, model, top_k, gpu, cat_to_name)
+
 np_probs = np.array(probs)
 high_prob = np.amax(np_probs)
 high_prob_idx = np.where(np_probs == np.amax(np_probs))
-with open('cat_to_name.json', 'r') as f:
-    cat_to_name = json.load(f)
-actual_flower_idx = imagepath.split('/')[2]
+actual_flower_idx = imagepath.split('/')[-2]
 actual_flower_cat = cat_to_name[actual_flower_idx]
 print("Given actual Image {} belongs to flower category {}".format(imagepath, actual_flower_cat))
 print("Top {} classes : {} with respective probabilities : {}".format(top_k,classes,probs))

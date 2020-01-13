@@ -7,15 +7,23 @@ from PIL import Image
 
 # loads a checkpoint and rebuilds the model
 def load_model_checkpoint(path):
-    # first load pretrained model 
-    model = models.vgg19(pretrained=True)
+    # load trained model from checkpoint
+    state = torch.load(path)
+    # first load pretrained model
+    arch = state['arch']
+    if arch == 'vgg19':
+        model = models.vgg19(pretrained=True)
+        # assign trained classifier
+        model.classifier = state['classifier']
+    else:
+        model = models.googlenet(pretrained=True)
+        # assign trained classifier
+        model.fc = state['classifier']
+        
     # freeze model parameters 
     for param in model.parameters():
         param.requires_grad = False
-    # load trained model from checkpoint
-    state = torch.load(path)
-    # assign trained classifier
-    model.classifier = state['classifier']
+
     # assign optimizer hyperparameters
     model.state_dict = state['state_dict']
     # assign mapping of flower class values to the flower indices
@@ -61,14 +69,12 @@ def imshow(image, ax=None, title=None):
     
     return ax
 
-def predict(image_path, model, topk, gpu):
+def predict(image_path, model, topk, gpu, cat_to_name):
     ''' Predict the class (or classes) of an image using a trained deep learning model.
     '''
     device = torch.device("cuda" if gpu else "cpu")
     print('Using {} for training'.format(device.type))
     
-    with open('cat_to_name.json', 'r') as f:
-        cat_to_name = json.load(f)
     
     # Implement the code to predict the class from an image file
     with torch.no_grad():
